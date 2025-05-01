@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>String Keyboard Simulator (No Faded Knob)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom styles */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; /* Light grayish-blue */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem;
+            touch-action: none; /* Prevent default touch actions like scrolling */
+            overflow-x: hidden; /* Prevent horizontal scrollbars */
+        }
+        .keyboard-container {
+            background-color: #d1d5db; /* Tailwind gray-300 */
+            border: 1px solid #9ca3af; /* Tailwind gray-400 */
+            border-radius: 0.75rem; /* Tailwind rounded-xl */
+            padding: 1.5rem; /* Tailwind p-6 */
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 600px; /* Limit maximum width */
+        }
+        .code-display-area {
+            background-color: #ffffff; /* White */
+            border: 1px solid #e5e7eb; /* Tailwind gray-200 */
+            border-radius: 0.5rem; /* Tailwind rounded-lg */
+            padding: 1rem 1.5rem; /* Tailwind p-4 px-6 */
+            margin-bottom: 1.5rem; /* Tailwind mb-6 */
+            text-align: center;
+        }
+        .code-label {
+            font-size: 0.875rem; /* Tailwind text-sm */
+            font-weight: 500; /* Tailwind font-medium */
+            color: #6b7280; /* Tailwind gray-500 */
+            margin-bottom: 0.5rem; /* Tailwind mb-2 */
+            letter-spacing: 0.1em; /* Wider spacing */
+            text-transform: uppercase;
+        }
+        .code-output {
+            font-size: 1.875rem; /* Tailwind text-3xl */
+            font-weight: 700; /* Tailwind font-bold */
+            color: #1f2937; /* Tailwind gray-800 */
+            letter-spacing: 0.2em; /* Even wider spacing for code */
+            min-height: 3rem; /* Ensure space even when empty */
+            border-bottom: 2px dashed #9ca3af; /* Tailwind gray-400 */
+            display: inline-block; /* Fit content width */
+            padding-bottom: 0.25rem; /* Space below text */
+        }
+        #keyboard-rows {
+             /* Container for rows */
+        }
+
+        .keyboard-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem; /* Space between rows */
+            background-color: #e5e7eb; /* Tailwind gray-200 */
+            border-radius: 0.5rem; /* Tailwind rounded-lg */
+            padding: 0.5rem; /* Row padding */
+            border: 1px solid #d1d5db; /* Tailwind gray-300 */
+            position: relative; /* Crucial for absolute positioning inside */
+            height: 4.5rem; /* Increased height to accommodate elements */
+        }
+
+        .knob { /* Base styles for the draggable knob */
+            width: 2rem; /* Tailwind w-8 */
+            height: 2rem; /* Tailwind h-8 */
+            border-radius: 9999px; /* Tailwind rounded-full */
+            background-color: #6b7280; /* Tailwind gray-500 */
+            border: 2px solid #4b5563; /* Tailwind gray-600 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            user-select: none; /* Prevent text selection */
+            flex-shrink: 0; /* Prevent shrinking */
+            position: absolute; /* Position relative to row */
+            top: 50%; /* Center vertically */
+            transform: translateY(-50%); /* Precise vertical centering */
+            z-index: 10; /* Ensure knob is above other elements */
+            transition: background-color 0.2s ease; /* Smooth color change */
+        }
+        .knob.right-knob {
+            cursor: grab; /* Indicate draggable */
+            right: 0.75rem; /* Position from the right edge */
+            /* Transition for the snap-back effect */
+            transition: background-color 0.2s ease, transform 0.15s ease-out;
+        }
+        .knob.right-knob:active {
+            background-color: #4b5563; /* Darker gray when active */
+            cursor: grabbing; /* Indicate dragging */
+            /* Remove transform transition during active drag */
+            transition: background-color 0.2s ease;
+        }
+
+        /* REMOVED .faded-knob styles */
+        /* REMOVED .keyboard-row.dragging .faded-knob styles */
+
+        .letter-slot-container {
+            flex-grow: 1; /* Take available space */
+            background-color: #f9fafb; /* Tailwind gray-50 */
+            border: 1px solid #d1d5db; /* Tailwind gray-300 */
+            border-radius: 0.375rem; /* Tailwind rounded-md */
+            margin-right: 3.5rem; /* Space for the knob area */
+            padding: 0.5rem; /* Padding inside the slot */
+            overflow: hidden; /* Hide overflowing letters */
+            height: 3.5rem; /* Fixed height */
+            display: flex;
+            justify-content: center; /* Center the track */
+            align-items: center; /* Center letters vertically */
+            position: relative; /* For potential future use */
+        }
+        .letter-track {
+            display: flex; /* Arrange letters in a row */
+        }
+        .letter {
+            width: 2.5rem; /* Tailwind w-10 */
+            height: 2.5rem; /* Tailwind h-10 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.125rem; /* Tailwind text-lg */
+            font-weight: 500; /* Tailwind font-medium */
+            color: #4b5563; /* Tailwind gray-600 */
+            background-color: #ffffff; /* White */
+            border: 1px solid #d1d5db; /* Tailwind gray-300 */
+            border-radius: 0.375rem; /* Tailwind rounded-md */
+            margin: 0 0.25rem; /* Horizontal space between letters */
+            user-select: none; /* Prevent text selection */
+            flex-shrink: 0; /* Prevent shrinking */
+            transition: background-color 0.1s linear, color 0.1s linear, transform 0.1s linear, border-color 0.1s linear;
+        }
+        .letter.active {
+            background-color: #facc15; /* Tailwind yellow-400 */
+            color: #1f2937; /* Tailwind gray-800 */
+            font-weight: 700; /* Tailwind font-bold */
+            border-color: #eab308; /* Tailwind yellow-500 */
+            transform: scale(1.1); /* Slightly larger */
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+        }
+
+        .drag-line {
+            position: absolute;
+            height: 6px; /* Line thickness */
+            background-color: #9ca3af; /* Tailwind gray-400 */
+            top: 50%; /* Vertically center */
+            transform-origin: left center; /* Scale/rotate from the left */
+            width: 0; /* Initial width */
+            opacity: 0; /* Hidden initially */
+            transition: opacity 0.15s ease-out;
+            pointer-events: none; /* Not interactive */
+            z-index: 7; /* Below main knob */
+            border-radius: 3px; /* Rounded ends */
+        }
+        /* Opacity controlled by adding/removing 'dragging' class in JS */
+        .keyboard-row.dragging .drag-line {
+            opacity: 0.7; /* Visible when dragging */
+            transition: opacity 0.1s ease-in;
+        }
+
+        .controls {
+            margin-top: 1.5rem; /* Tailwind mt-6 */
+            text-align: center;
+        }
+        .clear-button {
+            background-color: #ef4444; /* Tailwind red-500 */
+            color: white;
+            font-weight: 500; /* Tailwind font-medium */
+            padding: 0.5rem 1.5rem; /* Tailwind py-2 px-6 */
+            border-radius: 0.375rem; /* Tailwind rounded-md */
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        .clear-button:hover {
+            background-color: #dc2626; /* Tailwind red-600 */
+        }
+
+    </style>
+</head>
+<body>
+    <div class="keyboard-container">
+        <div class="code-display-area">
+            <div class="code-label">ROOM CODE</div>
+            <div id="code-output" class="code-output"></div>
+        </div>
+
+        <div id="keyboard-rows">
+            </div>
+
+         <div class="controls">
+             <button id="clear-button" class="clear-button">Clear</button>
+         </div>
+    </div>
+
+    <script>
+        // --- Configuration ---
+        const keyboardLayout = [
+            ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
+            ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
+            ['Z', 'X', 'C', 'V', 'B', 'N', 'M']
+        ];
+        const pixelsPerLetter = 35; // Pixels needed to drag to change one letter
+        const maxCodeLength = 8;
+
+        // --- DOM Elements ---
+        const keyboardRowsContainer = document.getElementById('keyboard-rows');
+        const codeOutputElement = document.getElementById('code-output');
+        const clearButton = document.getElementById('clear-button');
+
+        // --- State ---
+        let currentRowStates = [];
+        let currentCode = "";
+        let activeRowIndex = -1; // Index of the row currently being interacted with
+        let isDragging = false; // Flag if a knob is currently being dragged
+        let startX = 0; // Initial X position of the mouse/touch on drag start
+        let initialKnobX = 0; // Initial X position of the knob's center relative to the row
+
+        // --- Functions ---
+
+        /**
+         * Initializes the keyboard rows based on the layout.
+         */
+        function initializeKeyboard() {
+            keyboardRowsContainer.innerHTML = ''; // Clear existing rows
+            currentRowStates = []; // Reset row states
+            currentCode = ""; // Reset code
+
+            keyboardLayout.forEach((rowLetters, rowIndex) => {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'keyboard-row';
+                rowDiv.dataset.rowIndex = rowIndex; // Store row index for reference
+
+                // Letter Slot Container
+                const slotContainer = document.createElement('div');
+                slotContainer.className = 'letter-slot-container';
+
+                // Letter Track (holds the letters)
+                const letterTrack = document.createElement('div');
+                letterTrack.className = 'letter-track';
+                letterTrack.id = `letter-track-${rowIndex}`;
+
+                // Create individual letter elements
+                rowLetters.forEach((letter, letterIndex) => {
+                    const letterDiv = document.createElement('div');
+                    letterDiv.className = 'letter';
+                    letterDiv.textContent = letter;
+                    letterDiv.dataset.letterIndex = letterIndex; // Store letter index
+                    // Highlight the first letter by default
+                    if (letterIndex === 0) letterDiv.classList.add('active');
+                    letterTrack.appendChild(letterDiv);
+                });
+                slotContainer.appendChild(letterTrack);
+                rowDiv.appendChild(slotContainer);
+
+                // REMOVED: Faded Knob creation
+
+                // Draggable Right Knob
+                const rightKnob = document.createElement('div');
+                rightKnob.className = 'knob right-knob';
+                rightKnob.id = `right-knob-${rowIndex}`;
+                rightKnob.dataset.rowIndex = rowIndex; // Link knob to its row
+                rowDiv.appendChild(rightKnob);
+
+                // Drag Line (connects moving knob to start point)
+                const dragLine = document.createElement('div');
+                dragLine.className = 'drag-line';
+                dragLine.id = `drag-line-${rowIndex}`;
+                rowDiv.appendChild(dragLine);
+
+                keyboardRowsContainer.appendChild(rowDiv);
+
+                // Add event listeners for drag interaction (mouse and touch)
+                rightKnob.addEventListener('mousedown', handleDragStart);
+                rightKnob.addEventListener('touchstart', handleDragStart, { passive: false }); // passive:false to allow preventDefault
+
+                // Initialize state for this row
+                currentRowStates.push({
+                    letters: rowLetters,
+                    currentIndex: 0, // Currently selected letter index
+                    initialIndex: 0 // Index when drag started
+                });
+            });
+
+            // Global listeners to handle drag move and end outside the knob element
+            document.addEventListener('mousemove', handleDragMove);
+            document.addEventListener('touchmove', handleDragMove, { passive: false }); // passive:false to allow preventDefault
+            document.addEventListener('mouseup', handleDragEnd);
+            document.addEventListener('touchend', handleDragEnd);
+            // Handle cases where the mouse leaves the window during drag
+            document.addEventListener('mouseleave', handleDragEnd);
+
+            updateCodeDisplay(); // Initialize the code display
+        }
+
+        /**
+         * Updates the active letter highlight in a specific row.
+         * @param {number} rowIndex - The index of the row to update.
+         * @param {number} newIndex - The new letter index to highlight.
+         */
+        function updateHighlight(rowIndex, newIndex) {
+            const state = currentRowStates[rowIndex];
+            if (!state) return; // Exit if state not found (safety check)
+
+            const track = document.getElementById(`letter-track-${rowIndex}`);
+            if (!track) return; // Exit if track element not found
+            const letters = track.querySelectorAll('.letter');
+
+            // Clamp the new index to be within the valid range of letters
+            const clampedNewIndex = Math.max(0, Math.min(newIndex, state.letters.length - 1));
+
+            // Only update if the index has actually changed
+             if (clampedNewIndex !== state.currentIndex) {
+                // Remove 'active' class from the previously active letter
+                if (state.currentIndex >= 0 && state.currentIndex < letters.length) {
+                    letters[state.currentIndex]?.classList.remove('active');
+                }
+                // Update the state and add 'active' class to the new letter
+                state.currentIndex = clampedNewIndex;
+                if (state.currentIndex >= 0 && state.currentIndex < letters.length) {
+                    letters[state.currentIndex]?.classList.add('active');
+                }
+            }
+        }
+
+
+        /**
+         * Updates the code display area with the current code and placeholders.
+         */
+        function updateCodeDisplay() {
+            let displayHTML = currentCode;
+            const remaining = maxCodeLength - currentCode.length;
+            // Add placeholder underscores for remaining characters
+            if (remaining > 0) {
+                 displayHTML += `<span class="text-gray-400 opacity-50">${'_'.repeat(remaining)}</span>`;
+            }
+            codeOutputElement.innerHTML = displayHTML;
+        }
+
+        /**
+         * Handles the start of the drag action (mousedown or touchstart).
+         * @param {MouseEvent | TouchEvent} event - The event object.
+         */
+        function handleDragStart(event) {
+            const targetKnob = event.target.closest('.right-knob');
+            if (!targetKnob) return; // Ensure the event target is the knob
+
+            // Prevent default actions like text selection or page scrolling on touch
+            if (event.cancelable) event.preventDefault();
+
+            // Don't start drag if code is already full
+            if (currentCode.length >= maxCodeLength) return;
+
+            const rowIndex = parseInt(targetKnob.dataset.rowIndex, 10);
+            activeRowIndex = rowIndex; // Set the currently active row
+            isDragging = true; // Set the dragging flag
+
+            // Record the starting X coordinate
+            startX = event.clientX || event.touches[0].clientX;
+            // Store the initial letter index for calculating shifts
+            currentRowStates[activeRowIndex].initialIndex = currentRowStates[activeRowIndex].currentIndex;
+
+            // Calculate the initial center X position of the knob relative to the row
+            initialKnobX = targetKnob.offsetLeft + targetKnob.offsetWidth / 2;
+
+            const rowElement = targetKnob.closest('.keyboard-row');
+            const dragLine = document.getElementById(`drag-line-${activeRowIndex}`);
+
+            if (rowElement && dragLine) {
+                // Add 'dragging' class to the row for visual feedback (line opacity)
+                rowElement.classList.add('dragging');
+
+                // Initialize the drag line's position and appearance
+                dragLine.style.left = `${initialKnobX}px`; // Start line at knob center
+                dragLine.style.width = '0px'; // Initial width is zero
+                dragLine.style.transform = 'translateY(-50%) translateX(0px)'; // Reset transform
+
+                // Reset the moving knob's transform to ensure smooth start
+                targetKnob.style.transition = 'none'; // Disable transition during drag setup
+                targetKnob.style.transform = 'translateY(-50%) translateX(0px)';
+                // Force reflow to apply the reset instantly before re-enabling transition
+                void targetKnob.offsetWidth;
+                targetKnob.style.transition = ''; // Re-enable CSS transitions
+            }
+        }
+
+         /**
+         * Handles the drag movement (mousemove or touchmove).
+         * @param {MouseEvent | TouchEvent} event - The event object.
+         */
+        function handleDragMove(event) {
+            if (!isDragging || activeRowIndex === -1) return; // Only run if dragging is active
+
+            // Prevent default scroll/touch behavior during drag
+             if (event.cancelable) event.preventDefault();
+
+            const currentX = event.clientX || event.touches[0].clientX;
+            const rawDeltaX = currentX - startX; // Calculate raw horizontal distance dragged
+
+            const rowElement = keyboardRowsContainer.querySelector(`.keyboard-row[data-row-index="${activeRowIndex}"]`);
+            if (!rowElement) return; // Safety check
+
+            const rightKnob = rowElement.querySelector(`#right-knob-${activeRowIndex}`);
+            const dragLine = rowElement.querySelector(`#drag-line-${activeRowIndex}`);
+            const state = currentRowStates[activeRowIndex];
+            if (!rightKnob || !dragLine || !state) return; // More safety checks
+
+            const numLetters = state.letters.length;
+            const initialIndex = state.initialIndex;
+
+            // Calculate the desired letter shift based on drag distance
+            const letterShift = Math.sign(rawDeltaX) * Math.floor(Math.abs(rawDeltaX) / pixelsPerLetter);
+
+            // Calculate the target index based on the shift
+            let targetIndex = initialIndex + letterShift;
+
+            // Clamp the target index within the bounds of available letters (0 to numLetters - 1)
+            const clampedIndex = Math.max(0, Math.min(targetIndex, numLetters - 1));
+
+            // Calculate the actual shift achieved after clamping
+            const clampedShift = clampedIndex - initialIndex;
+
+            // Calculate the corresponding X displacement based on the clamped shift
+            const clampedDeltaX = clampedShift * pixelsPerLetter;
+
+            // --- Move the Real Knob ---
+            rightKnob.style.transition = 'none';
+            rightKnob.style.transform = `translateY(-50%) translateX(${clampedDeltaX}px)`;
+
+            // --- Update the Drag Line ---
+            const lineWidth = Math.abs(clampedDeltaX);
+            dragLine.style.width = `${lineWidth}px`;
+
+            // Adjust line position based on drag direction
+            if (clampedDeltaX < 0) { // Dragging left
+                dragLine.style.transform = `translateY(-50%) translateX(-${lineWidth}px)`;
+            } else { // Dragging right (or no movement)
+                dragLine.style.transform = 'translateY(-50%) translateX(0px)';
+            }
+
+            // --- Update letter highlight ---
+            updateHighlight(activeRowIndex, clampedIndex);
+        }
+
+
+        /**
+         * Handles the end of the drag action (mouseup, touchend, mouseleave).
+         * @param {MouseEvent | TouchEvent} event - The event object.
+         */
+        function handleDragEnd(event) {
+            // Only proceed if a drag was actually in progress
+            if (!isDragging || activeRowIndex === -1) {
+                // If not dragging, but mouseup/touchend occurs over a knob, reset just in case
+                if (event.target.closest('.right-knob')) {
+                     const knob = event.target.closest('.right-knob');
+                     const rowIndex = parseInt(knob.dataset.rowIndex, 10);
+                     resetRowVisuals(rowIndex); // Ensure visuals are reset
+                }
+                return;
+            }
+
+            const wasDragging = isDragging; // Store flag before resetting
+            const previouslyActiveRowIndex = activeRowIndex; // Store index before resetting
+
+            // Reset dragging state variables
+            isDragging = false;
+            activeRowIndex = -1;
+            startX = 0;
+            initialKnobX = 0;
+
+            // Reset visual styles for the row (knob position, line visibility)
+            resetRowVisuals(previouslyActiveRowIndex);
+
+            // If a drag occurred and the code isn't full, add the selected letter
+            if (wasDragging && currentCode.length < maxCodeLength) {
+                const state = currentRowStates[previouslyActiveRowIndex];
+                if (state) {
+                    const selectedLetter = state.letters[state.currentIndex];
+                    currentCode += selectedLetter; // Append letter to the code
+                    updateCodeDisplay(); // Update the display
+
+                    // Reset the highlight back to the first letter after a short delay
+                    setTimeout(() => {
+                        const currentState = currentRowStates[previouslyActiveRowIndex];
+                        if (currentState && activeRowIndex !== previouslyActiveRowIndex) {
+                           updateHighlight(previouslyActiveRowIndex, 0);
+                        }
+                    }, 200); // 200ms delay
+                }
+            } else if (wasDragging) {
+                 // If drag occurred but code was full, still reset the highlight
+                 setTimeout(() => {
+                    const currentState = currentRowStates[previouslyActiveRowIndex];
+                    if (currentState && activeRowIndex !== previouslyActiveRowIndex) {
+                       updateHighlight(previouslyActiveRowIndex, 0);
+                    }
+                 }, 200);
+            }
+        }
+
+        /**
+        * Resets the visual state of a row (knob transform, line, dragging class).
+        * @param {number} rowIndex - The index of the row to reset.
+        */
+        function resetRowVisuals(rowIndex) {
+            if (rowIndex < 0 || rowIndex >= currentRowStates.length) return;
+
+            const rowElement = keyboardRowsContainer.querySelector(`.keyboard-row[data-row-index="${rowIndex}"]`);
+             if (rowElement) {
+                rowElement.classList.remove('dragging'); // Hide line
+
+                // Reset Moving Knob Position using CSS transition for snap-back
+                const rightKnob = rowElement.querySelector(`#right-knob-${rowIndex}`);
+                if (rightKnob) {
+                    rightKnob.style.transition = ''; // Ensure CSS transition applies
+                    rightKnob.style.transform = 'translateY(-50%) translateX(0px)';
+                }
+
+                // Explicitly reset line styles
+                const dragLine = rowElement.querySelector(`#drag-line-${rowIndex}`);
+                if (dragLine) {
+                    dragLine.style.width = '0px';
+                    dragLine.style.transform = 'translateY(-50%) translateX(0px)';
+                    // Opacity is handled by removing the 'dragging' class
+                }
+            }
+        }
+
+
+        /** Clears the entered code and resets all row highlights. */
+        function clearCode() {
+            currentCode = ""; // Clear the code string
+            updateCodeDisplay(); // Update the display
+
+            // Reset each row's highlight to the first letter and reset visuals
+            currentRowStates.forEach((state, index) => {
+                updateHighlight(index, 0); // Reset highlight to the start
+                resetRowVisuals(index); // Ensure knob/line are reset
+            });
+        }
+
+        // --- Initialization ---
+        window.addEventListener('load', initializeKeyboard); // Initialize when the page loads
+        clearButton.addEventListener('click', clearCode); // Add listener for the clear button
+
+    </script>
+</body>
+</html>
